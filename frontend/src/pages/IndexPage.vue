@@ -16,6 +16,14 @@
           >
             <q-tooltip>Reload Tasks</q-tooltip>
           </q-btn>
+          <q-btn
+            round
+            color="primary"
+            icon="add"
+            @click="openAddTaskDialog"
+          >
+            <q-tooltip>Add Task</q-tooltip>
+          </q-btn>
         </div>
       </div>
 
@@ -68,6 +76,36 @@
         </template>
       </div>
     </div>
+    <!-- Add Task Dialog -->
+    <q-dialog v-model="showAddTaskDialog">
+      <q-card style="min-width: 350px">
+        <q-card-section>
+          <div class="text-h6">Add New Task</div>
+        </q-card-section>
+
+        <q-card-section class="q-pt-none">
+          <q-input
+            dense
+            v-model="newTask.title"
+            label="Title *"
+            autofocus
+            :rules="[val => !!val || 'Title is required']"
+          />
+          <q-input
+            dense
+            v-model="newTask.description"
+            label="Description"
+            type="textarea"
+            rows="3"
+          />
+        </q-card-section>
+
+        <q-card-actions align="right" class="text-primary">
+          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn flat label="Save" @click="addTask" :loading="submitting" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -86,11 +124,22 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { api } from 'boot/axios';
+import { useQuasar } from 'quasar';
+
+const $q = useQuasar();
 
 const tasks = ref([]);
 const loading = ref(false);
 const errorMessage = ref('');
 const loadingErrorUrl = ref('');
+
+// Add Task State
+const showAddTaskDialog = ref(false);
+const newTask = ref({
+  title: '',
+  description: ''
+});
+const submitting = ref(false);
 
 const fetchTasks = async () => {
   loading.value = true;
@@ -118,6 +167,42 @@ const formatDate = (dateStr) => {
     minute: '2-digit',
     second: '2-digit',
   });
+};
+
+const openAddTaskDialog = () => {
+  newTask.value = { title: '', description: '' };
+  showAddTaskDialog.value = true;
+};
+
+const addTask = async () => {
+  if (!newTask.value.title) {
+    $q.notify({
+      type: 'negative',
+      message: 'Please enter a title'
+    });
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    await api.post('/tasks', newTask.value);
+    
+    $q.notify({
+      type: 'positive',
+      message: 'Task created successfully'
+    });
+    
+    showAddTaskDialog.value = false;
+    await fetchTasks(); // Reload list
+  } catch (err) {
+    console.error('Add Task Error:', err);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to create task'
+    });
+  } finally {
+    submitting.value = false;
+  }
 };
 
 onMounted(fetchTasks);
